@@ -761,14 +761,16 @@ namespace ts.textChanges {
         private finishClassesWithNodesInsertedAtStart(): void {
             this.classesWithNodesInsertedAtStart.forEach(({ node, sourceFile }) => {
                 const [openBraceEnd, closeBraceEnd] = getClassOrObjectBraceEnds(node, sourceFile);
-                const isEmpty = getMembersOrProperties(node).length === 0;
-                const isSingleLine = positionsAreOnSameLine(openBraceEnd, closeBraceEnd, sourceFile);
-                if (isEmpty && isSingleLine && openBraceEnd !== closeBraceEnd - 1) {
-                    // For `class C { }` remove the whitespace inside the braces.
-                    this.deleteRange(sourceFile, createRange(openBraceEnd, closeBraceEnd - 1));
-                }
-                if (isSingleLine) {
-                    this.insertText(sourceFile, closeBraceEnd - 1, this.newLineCharacter);
+                if (openBraceEnd !== undefined && closeBraceEnd !== undefined) {
+                    const isEmpty = getMembersOrProperties(node).length === 0;
+                    const isSingleLine = positionsAreOnSameLine(openBraceEnd, closeBraceEnd, sourceFile);
+                    if (isEmpty && isSingleLine && openBraceEnd !== closeBraceEnd - 1) {
+                        // For `class C { }` remove the whitespace inside the braces.
+                        this.deleteRange(sourceFile, createRange(openBraceEnd, closeBraceEnd - 1));
+                    }
+                    if (isSingleLine) {
+                        this.insertText(sourceFile, closeBraceEnd - 1, this.newLineCharacter);
+                    }
                 }
             });
         }
@@ -824,8 +826,10 @@ namespace ts.textChanges {
         return skipTrivia(sourceFile.text, getAdjustedStartPosition(sourceFile, node, { leadingTriviaOption: LeadingTriviaOption.IncludeAll }), /*stopAfterLineBreak*/ false, /*stopAtComments*/ true);
     }
 
-    function getClassOrObjectBraceEnds(cls: ClassLikeDeclaration | InterfaceDeclaration | ObjectLiteralExpression, sourceFile: SourceFile): [number, number] {
-        return [findChildOfKind(cls, SyntaxKind.OpenBraceToken, sourceFile)!.end, findChildOfKind(cls, SyntaxKind.CloseBraceToken, sourceFile)!.end];
+    function getClassOrObjectBraceEnds(cls: ClassLikeDeclaration | InterfaceDeclaration | ObjectLiteralExpression, sourceFile: SourceFile): [number | undefined, number | undefined] {
+        const open = findChildOfKind(cls, SyntaxKind.OpenBraceToken, sourceFile);
+        const close = findChildOfKind(cls, SyntaxKind.CloseBraceToken, sourceFile);
+        return [open?.end, close?.end];
     }
     function getMembersOrProperties(cls: ClassLikeDeclaration | InterfaceDeclaration | ObjectLiteralExpression): NodeArray<Node> {
         return isObjectLiteralExpression(cls) ? cls.properties : cls.members;
